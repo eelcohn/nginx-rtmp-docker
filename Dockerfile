@@ -77,15 +77,20 @@ RUN cd /tmp/build/stunnel/stunnel-${STUNNEL_VERSION} && \
 # Remove build files
 RUN  rm -rf /tmp/build
 
-# Configure Icecast user
-RUN adduser --disabled-password '' icecast2
-
-# Forward logs to Docker
+# Forward nginx logs to Docker
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log
 
-# Set up config file
+# Set up nginx config file
 COPY nginx.conf /etc/nginx/nginx.conf
+
+# Set up stunnel config file
+RUN adduser --disabled-password '' stunnel
+COPY stunnel.conf /usr/local/etc/stunnel/stunnel.conf
+RUN update-rc.d stunnel enable
+
+# Configure Icecast user
+RUN adduser --disabled-password '' icecast2
 
 EXPOSE 1935
 CMD ["nginx", "-g", "daemon off;"]
