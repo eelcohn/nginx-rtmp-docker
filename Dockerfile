@@ -3,8 +3,9 @@ FROM buildpack-deps:stretch
 LABEL maintainer="Sebastian Ramirez <tiangolo@gmail.com>"
 
 # Versions of Nginx and nginx-rtmp-module to use
-ENV NGINX_VERSION nginx-1.15.0
+ENV NGINX_VERSION nginx-1.17.9
 ENV NGINX_RTMP_MODULE_VERSION 1.2.1
+ENV ICECAST_VERSION 2.4.4
 
 # Install dependencies
 RUN apt-get update && \
@@ -24,6 +25,12 @@ RUN mkdir -p /tmp/build/nginx-rtmp-module && \
     tar -zxf nginx-rtmp-module-${NGINX_RTMP_MODULE_VERSION}.tar.gz && \
     cd nginx-rtmp-module-${NGINX_RTMP_MODULE_VERSION}
 
+# Download and decompress Icecast
+RUN mkdir -p /tmp/build/icecast && \
+    cd /tmp/build/icecast && \
+    wget -O ${ICECAST_VERSION}.tar.gz "http://downloads.xiph.org/releases/icecast/icecast-$ICECAST_VERSION.tar.gz" && \
+    tar -zxf ${ICECAST_VERSION}.tar.gz
+
 # Build and install Nginx
 # The default puts everything under /usr/local/nginx, so it's needed to change
 # it explicitly. Not just for order but to have it in the PATH
@@ -42,8 +49,21 @@ RUN cd /tmp/build/nginx/${NGINX_VERSION} && \
         --add-module=/tmp/build/nginx-rtmp-module/nginx-rtmp-module-${NGINX_RTMP_MODULE_VERSION} && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install && \
-    mkdir /var/lock/nginx && \
-    rm -rf /tmp/build
+    mkdir /var/lock/nginx &&
+
+# Download, compile and install Icecast
+RUN cd /tmp/build/icecast/${NGINX_VERSION} && \
+  && ./configure \
+  && make \
+  && make install \
+  && cd .. \
+  && rm -r "icecast-$ICECAST_VERSION"
+
+# Remove build files
+RUN  rm -rf /tmp/build
+
+# Configure Icecast user
+RUN adduser --disabled-password '' icecast2
 
 # Forward logs to Docker
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
